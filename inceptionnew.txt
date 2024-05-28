@@ -1,0 +1,67 @@
+# Import necessary libraries
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, precision_score, confusion_matrix, f1_score
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+from tensorflow.keras.applications import InceptionV3
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.utils import to_categorical
+
+# Load your dataset and preprocess it
+# Assuming your dataset has four different types of MRI scans and labels
+# Adjust the loading and preprocessing based on your actual dataset
+
+# Example:
+# X = load_and_preprocess_data()  # Load and preprocess your MRI data
+# y = load_labels()  # Load corresponding labels
+
+# Set the number of classes
+num_classes = 4  # Adjust based on the actual number of classes in your dataset
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Convert labels to one-hot encoding
+y_train_encoded = to_categorical(y_train, num_classes=num_classes)
+y_test_encoded = to_categorical(y_test, num_classes=num_classes)
+
+# Define the InceptionV3 model with transfer learning
+base_model = InceptionV3(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
+
+# Freeze the layers of the InceptionV3 model
+for layer in base_model.layers:
+    layer.trainable = False
+
+# Build your model on top of the InceptionV3 base model
+x = base_model.output
+x = Flatten()(x)
+x = Dense(512, activation='relu')(x)
+x = Dropout(0.5)(x)
+x = Dense(256, activation='relu')(x)
+output = Dense(num_classes, activation='softmax')(x)
+
+model = Model(inputs=base_model.input, outputs=output)
+
+# Compile the model
+model.compile(optimizer=Adam(lr=0.0001), loss='categorical_crossentropy', metrics=['accuracy'])
+
+# Train the model
+model.fit(X_train, y_train_encoded, epochs=10, batch_size=32, validation_split=0.2)
+
+# Evaluate the model on the test set
+y_pred = model.predict(X_test)
+y_pred_classes = np.argmax(y_pred, axis=1)
+y_true = np.argmax(y_test_encoded, axis=1)
+
+# Calculate and print evaluation metrics
+accuracy = accuracy_score(y_true, y_pred_classes)
+precision = precision_score(y_true, y_pred_classes, average='weighted')
+conf_matrix = confusion_matrix(y_true, y_pred_classes)
+f1 = f1_score(y_true, y_pred_classes, average='weighted')
+
+print(f"Accuracy: {accuracy}")
+print(f"Precision: {precision}")
+print(f"Confusion Matrix:\n{conf_matrix}")
+print(f"F1 Score: {f1}")
